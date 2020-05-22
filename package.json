@@ -2,7 +2,7 @@
 {
   "name": "@draftbox-co/gatsby-rehype-inline-images",
   "description": "A Gatsby plugin to download inline images from Ghost",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "Arun Priyadarshi <arunpriyadarshi52@gmail.com>",
   "repository": {
     "type": "git",

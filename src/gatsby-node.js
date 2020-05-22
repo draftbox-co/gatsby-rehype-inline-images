@@ -2,6 +2,7 @@ const _ = require(`lodash`)
 const visit = require(`unist-util-visit`)
 const { createRemoteFileNode } = require(`gatsby-source-filesystem`)
 const { fluid } = require(`gatsby-plugin-sharp`)
+const sharp = require(`sharp`)
 const Img = require(`gatsby-image`)
 const sizeOf = require('image-size')
 const React = require(`react`)
@@ -153,55 +154,58 @@ const generateImagesAndUpdateNode = async function({
 	reporter
 }) {
 	if (!imageNode || !imageNode.absolutePath) return
-
-	let fluidResultWebp
-	let fluidResult = await fluid({
-		file: imageNode,
-		args: {
-			...options,
-			maxWidth: formattedImgTag.width || options.maxWidth,
-		},
-		reporter,
-		cache,
-	})
-
-	if (options.withWebp) {
-		fluidResultWebp = await fluid({
+	try {
+		await sharp(imageNode.absolutePath).metadata();
+		let fluidResultWebp
+		let fluidResult = await fluid({
 			file: imageNode,
 			args: {
 				...options,
 				maxWidth: formattedImgTag.width || options.maxWidth,
-				toFormat: "WEBP",
 			},
 			reporter,
 			cache,
 		})
+		
+		if (options.withWebp) {
+			fluidResultWebp = await fluid({
+				file: imageNode,
+				args: {
+					...options,
+					maxWidth: formattedImgTag.width || options.maxWidth,
+					toFormat: "WEBP",
+				},
+				reporter,
+				cache,
+			})
+		}
+
+		if (!fluidResult) return
+
+		if (options.withWebp) {
+			fluidResult.srcSetWebp = fluidResultWebp.srcSet
+		}
+		const imgOptions = {
+			fluid: fluidResult,
+			style: {
+				maxWidth: "100%",
+			},
+			// Force show full image instantly
+			// critical: true, // depricated
+			loading: "eager",
+			alt: formattedImgTag.alt,
+			// fadeIn: true,
+			imgStyle: {
+				opacity: 1,
+			},
+		}
+		if (formattedImgTag.width) imgOptions.style.width = formattedImgTag.width
+		const ReactImgEl = React.createElement(Img.default, imgOptions, null)
+		return ReactDOMServer.renderToString(ReactImgEl)
+	} catch (e) {
+		console.log('err', e);
+		return;
 	}
-
-	if (!fluidResult) return
-
-	if (options.withWebp) {
-		fluidResult.srcSetWebp = fluidResultWebp.srcSet
-	}
-
-	const imgOptions = {
-		fluid: fluidResult,
-		style: {
-			maxWidth: "100%",
-		},
-		// Force show full image instantly
-		// critical: true, // depricated
-		loading: "eager",
-		alt: formattedImgTag.alt,
-		// fadeIn: true,
-		imgStyle: {
-			opacity: 1,
-		},
-	}
-	if (formattedImgTag.width) imgOptions.style.width = formattedImgTag.width
-
-	const ReactImgEl = React.createElement(Img.default, imgOptions, null)
-	return ReactDOMServer.renderToString(ReactImgEl)
 }
 
 const downloadMediaFile = async ({
